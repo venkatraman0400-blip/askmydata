@@ -1,0 +1,19 @@
+# Secrets — never commit this
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+
+# Data files (large uploads)
+*.db
+*.sqlite
+*.sqlite3
+
+# FAISS index (in-memory for Streamlit Cloud; skip if saved locally)
+*.faiss
+*.pkl
