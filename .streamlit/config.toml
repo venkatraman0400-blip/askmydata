@@ -1,0 +1,24 @@
+# .streamlit/config.toml
+# ─────────────────────────────────────────────────────────
+# Streamlit app configuration for AskMyData.
+# Committed to the repo — only secrets.toml is excluded.
+# ─────────────────────────────────────────────────────────
+
+[theme]
+base                    = "light"
+primaryColor            = "#6366F1"          # indigo-500
+backgroundColor         = "#FFFFFF"
+secondaryBackgroundColor = "#F1F5F9"         # slate-100
+textColor               = "#0F172A"          # slate-900
+
+[server]
+headless          = true
+enableCORS        = false
+enableXsrfProtection = true
+maxUploadSize     = 200                      # MB — allows large CSVs
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode      = "minimal"                 # hide deploy/share button clutter
