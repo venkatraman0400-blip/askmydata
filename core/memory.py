@@ -1,20 +1,9 @@
 # core/memory.py
 # ─────────────────────────────────────────────────────────
 # Multi-turn conversation memory for AskMyData.
-#
-# Wraps LangChain ConversationBufferWindowMemory with:
-#   • Streamlit-friendly interface (storable in session_state)
-#   • Windowed history — remembers last k exchanges only
-#   • Automatic context trimming — older messages are dropped
-#     so the LLM prompt never overflows
-#   • Live resize — window size can change without losing
-#     recent exchanges
-#
-# One ChatMemory lives in st.session_state per loaded dataset.
-# It is reset when the user loads a new dataset.
+# Pure Python — no langchain.memory dependency.
+# Stores the last k question-answer exchanges.
 # ─────────────────────────────────────────────────────────
-
-from langchain.memory import ConversationBufferWindowMemory
 
 
 class ChatMemory:
@@ -32,88 +21,50 @@ class ChatMemory:
     """
 
     def __init__(self, k: int = 5) -> None:
-        self.k    = k
-        self._mem = self._make_memory(k)
+        self.k          = k
+        self._exchanges: list[tuple[str, str]] = []  # (human, ai) pairs
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def add_exchange(self, human: str, ai: str) -> None:
-        """
-        Record one question + answer exchange.
-        If the window is full, the oldest exchange is automatically dropped.
-        """
-        self._mem.save_context(
-            inputs={"input":  human},
-            outputs={"output": ai},
-        )
+        """Record one Q&A exchange. Drops oldest if window is full."""
+        self._exchanges.append((human, ai))
+        if len(self._exchanges) > self.k:
+            self._exchanges = self._exchanges[-self.k:]
 
     def get_history_str(self) -> str:
         """
-        Return the windowed conversation history as a formatted string.
-
-        Format (injected verbatim into the agent prompt):
-            User: What is the total revenue?
-            Assistant: The total revenue across all orders is $2.45 million.
-
-            User: Which region leads?
-            Assistant: The North region leads with $890,000.
-
+        Return the windowed history as a formatted string for prompt injection.
         Returns "None" when there is no history yet.
         """
-        raw = self._mem.load_memory_variables({}).get("history", "").strip()
-        return raw if raw else "None"
+        if not self._exchanges:
+            return "None"
+        lines = []
+        for human, ai in self._exchanges:
+            lines.append(f"User: {human}")
+            lines.append(f"Assistant: {ai}")
+        return "\n".join(lines)
 
     def clear(self) -> None:
         """Wipe all stored exchanges."""
-        self._mem.clear()
+        self._exchanges = []
 
     def resize(self, new_k: int) -> None:
-        """
-        Change the memory window size.
-        Recent exchanges (up to new_k) are preserved; older ones are dropped.
-        No-op if new_k equals the current window size.
-        """
-        if new_k == self.k:
-            return
-
-        old_messages = list(self._mem.chat_memory.messages)
-        self.k       = new_k
-        self._mem    = self._make_memory(new_k)
-
-        # Replay the last new_k exchanges from the old history
-        pairs_to_keep = old_messages[-(new_k * 2):]
-        for i in range(0, len(pairs_to_keep) - 1, 2):
-            try:
-                self._mem.save_context(
-                    inputs  = {"input":  pairs_to_keep[i].content},
-                    outputs = {"output": pairs_to_keep[i + 1].content},
-                )
-            except (IndexError, AttributeError):
-                break
+        """Change window size, keeping the most recent exchanges."""
+        self.k = new_k
+        if len(self._exchanges) > new_k:
+            self._exchanges = self._exchanges[-new_k:]
 
     # ── Properties ─────────────────────────────────────────────────────────────
 
     @property
     def exchange_count(self) -> int:
-        """Number of complete exchanges currently stored in the window."""
-        return len(self._mem.chat_memory.messages) // 2
+        return len(self._exchanges)
 
     @property
     def window_size(self) -> int:
-        """Maximum exchanges the window can hold (= k)."""
         return self.k
 
     @property
     def is_empty(self) -> bool:
-        return self.exchange_count == 0
-
-    # ── Internal ───────────────────────────────────────────────────────────────
-
-    @staticmethod
-    def _make_memory(k: int) -> ConversationBufferWindowMemory:
-        return ConversationBufferWindowMemory(
-            k                = k,
-            human_prefix     = "User",
-            ai_prefix        = "Assistant",
-            return_messages  = False,   # return plain string, not message objects
-        )
+        return len(self._exchanges) == 0
