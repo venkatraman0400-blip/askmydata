@@ -320,16 +320,14 @@ with st.sidebar:
     # ── Status + clear ─────────────────────────────────────────────────────────
     if st.session_state.data_obj:
         st.divider()
-        st.success(
-            f"✓ RAG · {st.session_state.rag_chunk_count} chunks"
-        ) if st.session_state.rag_engine else st.warning(
-            f"⚠ RAG: {st.session_state.rag_error}"
-        )
-        st.success(
-            f"✓ Agent · {st.session_state.llm_provider}"
-        ) if st.session_state.agent else st.warning(
-            f"⚠ Agent: {st.session_state.agent_error}"
-        )
+        if st.session_state.rag_engine:
+            st.success(f"✓ RAG · {st.session_state.rag_chunk_count} chunks")
+        else:
+            st.warning(f"⚠ RAG: {st.session_state.rag_error}")
+        if st.session_state.agent:
+            st.success(f"✓ Agent · {st.session_state.llm_provider}")
+        else:
+            st.warning(f"⚠ Agent: {st.session_state.agent_error}")
         if st.button("Clear dataset", use_container_width=True, type="secondary"):
             _clear()
             st.rerun()
